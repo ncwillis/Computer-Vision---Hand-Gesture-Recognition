@@ -23,7 +23,7 @@ def get_silhouette(roi, roi_bgr):
     mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
 
     #resize image for consistency
-    mask_250 = cv.resize(mask, (250,250))
+    mask_250 = cv.resize(mask, (200,200))
     return mask_250
 
 def position_hand():
@@ -65,6 +65,7 @@ def get_histogram(hand_mask):
     cv.normalize(roi_hist, roi_hist, 0, 255, cv.NORM_MINMAX)
     return(roi_hsv, roi_hist)
 
+# Create dataset directory to store files
 print("Enter Dataset Name and press Enter: ")
 dir = input()
 cwd = os.getcwd()
@@ -72,7 +73,9 @@ print(cwd)
 path = os.path.join(cwd, dir)
 if not os.path.exists(dir):
     os.mkdir(path)
+i = len(os.listdir(path)) + 1
 
+# Start video capturing
 cap = cv.VideoCapture(0)
 
 # Initial window location
@@ -86,7 +89,7 @@ hand_mask, diff = subtract_background(bg_roi, hand_roi)
 roi_hsv, roi_hist = get_histogram(hand_mask)
 
 term_crit = ( cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 1 )
-i = 1
+
 while(1):
     ret, frame = cap.read()
     norm = cv.normalize(frame, frame, 0, 255, cv.NORM_MINMAX)
@@ -119,8 +122,15 @@ while(1):
     if cv.waitKey(1) & 0xFF == ord('q'):
          break
     if cv.waitKey(1) & 0xFF == ord('c'):
-        roi_bgr = frame[large_y:y + large_h, large_x:x + large_w]
-        roi = hsv[large_y:y + large_h, large_x:x + large_w]
+        if y+large_h >= frame.shape[0]:
+            roi_bgr = frame[large_y:frame.shape[0], large_x:x + large_w]
+            roi = hsv[large_y:frame.shape[0], large_x:x + large_w]
+        if x+large_w >= frame.shape[1]:
+            roi_bgr = frame[large_y:y + large_h, large_x:frame.shape[1]]
+            roi = hsv[large_y:y + large_h, large_x:frame.shape[1]]
+        else:
+            roi_bgr = frame[large_y:y + large_h, large_x:x + large_w]
+            roi = hsv[large_y:y + large_h, large_x:x + large_w]
         sil = get_silhouette(roi, roi_bgr)
         file_name = str(dir + '_' + str(i) + '.jpg')
         cv.imshow(file_name, sil)
