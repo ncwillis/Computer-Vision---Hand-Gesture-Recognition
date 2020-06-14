@@ -3,12 +3,30 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from keras.utils import np_utils
+from keras.layers import Convolution2D, MaxPooling2D
+from keras.layers import Dense, Dropout, Activation, Flatten
+from keras.models import Sequential
 import os
 
+def get_label(name):
+    if "peace" in name:
+        label = 0
+    elif "wave" in name:
+        label = 1
+    elif "fist" in name:
+        label = 2
+    elif "thumbsup" in name:
+        label = 3
+    elif "rad" in name:
+        label = 4
+    else:
+        label = 5
+    return label
 
-def load_samples(dir, label):
+def load_samples(dir):
     cwd = os.getcwd()
     folder = os.path.join(cwd, dir)
+    label = get_label(dir)
     samples = [f for f in os.listdir(folder) if not f.startswith('.')]
     x_train = []
     y_train = []
@@ -32,7 +50,7 @@ def load_data(train_or_test):
     y_train = []
     for i in enumerate(datasets):
         key.append([i[0], i[1]])
-        train_data = load_samples(str('datasets/' + train_or_test + '/' + str(i[1])), i[0])
+        train_data = load_samples(str('datasets/' + train_or_test + '/' + str(i[1])))
         x_data.append(train_data[0])
         if i[0] == 0:
             y_train = train_data[1]
@@ -54,14 +72,29 @@ def normalize_data(x):
     return x
 
 if __name__ == "__main__":
-    (x_train, y_train), key = load_data('training')
-    (x_test, y_test), key = load_data('testing')
+    (x_train, y_train), key_train = load_data('training')
+    (x_test, y_test), key_test = load_data('testing')
 
-    x_train, y_train = reshape_data(x_train, y_train, key)
-    x_test, y_test = reshape_data(x_test, y_test, key)
+    # x_train, y_train = reshape_data(x_train, y_train, key)
+    # x_test, y_test = reshape_data(x_test, y_test, key)
 
     x_train = normalize_data(x_train)
     x_test = normalize_data(x_test)
+
+    model = keras.Sequential([
+        keras.layers.Flatten(input_shape=(200, 200)),
+        keras.layers.Dense(128, activation='relu'),
+        keras.layers.Dense(10)
+    ])
+
+    model.compile(optimizer='adam',
+                  loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                  metrics=['accuracy'])
+
+    model.fit(x_train, y_train, epochs=10)
+    test_loss, test_acc = model.evaluate(x_test, y_test, verbose=2)
+
+    print('\nTest accuracy:', test_acc)
 
     print(x_train.shape)
     print(y_train.shape)
