@@ -1,6 +1,8 @@
 import cv2 as cv
 import numpy as np
-import keras
+import tensorflow as tf
+from tensorflow import keras
+from keras.utils import np_utils
 import os
 
 
@@ -30,7 +32,7 @@ def load_data(train_or_test):
     y_train = []
     for i in enumerate(datasets):
         key.append([i[0], i[1]])
-        train_data = load_samples(str('datasets/training/'+ str(i[1])), i[0])
+        train_data = load_samples(str('datasets/' + train_or_test + '/' + str(i[1])), i[0])
         x_data.append(train_data[0])
         if i[0] == 0:
             y_train = train_data[1]
@@ -41,7 +43,27 @@ def load_data(train_or_test):
 
     return (x_train, y_train), key
 
+def reshape_data(x, y, key):
+    x = x.reshape(x.shape[0], 1, x.shape[1], x.shape[2])
+    y = np_utils.to_categorical(y, len(key))
+    return x, y
+
+def normalize_data(x):
+    x = x.astype('float32')
+    x /= 255
+    return x
+
 if __name__ == "__main__":
     (x_train, y_train), key = load_data('training')
+    (x_test, y_test), key = load_data('testing')
+
+    x_train, y_train = reshape_data(x_train, y_train, key)
+    x_test, y_test = reshape_data(x_test, y_test, key)
+
+    x_train = normalize_data(x_train)
+    x_test = normalize_data(x_test)
+
     print(x_train.shape)
     print(y_train.shape)
+    print(x_test.shape)
+    print(y_test.shape)
