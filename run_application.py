@@ -4,7 +4,6 @@ import time
 import os
 import tensorflow as tf
 from tensorflow import keras
-import model_preprocessing
 
 def get_silhouette(roi, roi_bgr):
     roi_backproj = cv.calcBackProject([roi], [0, 1], roi_hist, [0, 180, 0, 256], 1)
@@ -28,7 +27,7 @@ def get_silhouette(roi, roi_bgr):
     #resize image for consistency
     mask_250 = cv.resize(mask, (200,200))
     #Model preprocessing
-    mask_250 = mask_250.astype('float32')
+    # mask_250 = mask_250.astype('float32')
     return mask_250
 
 def position_hand():
@@ -84,93 +83,115 @@ def get_class(label):
         hand = "ok"
     return hand
 
-# Create dataset directory to store files
-# print("Enter Dataset Name and press Enter: ")
-# dir = input()
-#
-# cwd = os.getcwd()
-# path = os.path.join(cwd, "datasets")
-# if "test" in dir:
-#     path = os.path.join(path, 'testing')
-# else:
-#     path = os.path.join(path, 'training')
-# path = os.path.join(path, dir)
-# if not os.path.exists(path):
-#     os.mkdir(path)
-# i = len(os.listdir(path)) + 1
+def initialize_video():
+    # Start video capturing
+    cap = cv.VideoCapture(0)
 
+    term_crit = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 1)
+    return cap, term_crit
 
-# Start video capturing
-cap = cv.VideoCapture(0)
+def initialize_hand_window():
+    # Initial window location
+    r, h, c, w = 130, 420, 940, 300
+    track_window = (c, r, w, h)
+    return r, h, c, w, track_window
 
-# Initial window location
-r,h,c,w = 130,420,940,300
-track_window = (c,r,w,h)
-
-frame, bg_roi, hand_roi = position_hand()
-
-hand_mask, diff = subtract_background(bg_roi, hand_roi)
-
-roi_hsv, roi_hist = get_histogram(hand_mask)
-
-cnn = tf.keras.models.load_model('cnn.h5')
-
-term_crit = ( cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 1 )
-while(1):
-    ret, frame = cap.read()
-    norm = cv.normalize(frame, frame, 0, 255, cv.NORM_MINMAX)
-    hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
-    dst = cv.calcBackProject([hsv], [0,1], roi_hist, [0, 180, 0, 256], 1)
-
-    # apply meanshift to get the new location
-    ret, track_window = cv.CamShift(dst, track_window, term_crit)
-
-    # Draw it on image
+def draw_camshift(frame, ret):
     pts = cv.boxPoints(ret)
     pts = np.int0(pts)
-    img2 = cv.polylines(frame.copy(), [pts], True, 255, 2)
+    img = cv.polylines(frame.copy(), [pts], True, 255, 2)
+    return img, pts
 
+def get_camshift_extrema(pts):
     pts_col = pts[:, 0]
     pts_row = pts[:, 1]
     x = np.amin(pts_col)
     y = np.amin(pts_row)
     w = np.amax(pts_col) - x
     h = np.amax(pts_row) - y
+    return x, y, w, h
 
-    large_x = x-int(w/2)
-    large_y = y-int(h/2)
-    large_w = int(1.5*w)
-    large_h = h
-    draw_rect = cv.rectangle(img2, (x-int(w/2), y-int(h/2)), (x + int(1.5*w), y + h), (0, 255, 0), 1)
+def get_current_hand_window(x,y,w,h):
+    x = x - int(w / 2)
+    y = y - int(h / 2)
+    w = int(1.5 * w)
+    return x,y,w,h
 
-    # cv.imshow("Display", draw_rect)
-
-    # get window
-    if y+large_h >= frame.shape[0]:
+def get_ROI_image(frame, hsv):
+    if y + large_h >= frame.shape[0]:
         roi_bgr = frame[large_y:frame.shape[0], large_x:x + large_w]
         roi = hsv[large_y:frame.shape[0], large_x:x + large_w]
-    if x+large_w >= frame.shape[1]:
+    if x + large_w >= frame.shape[1]:
         roi_bgr = frame[large_y:y + large_h, large_x:frame.shape[1]]
         roi = hsv[large_y:y + large_h, large_x:frame.shape[1]]
     else:
         roi_bgr = frame[large_y:y + large_h, large_x:x + large_w]
         roi = hsv[large_y:y + large_h, large_x:x + large_w]
-    # get silhouette
-    sil = get_silhouette(roi, roi_bgr)
+    return roi, roi_bgr
+
+def process_sample(img):
+    img = img.astype('float32')
     # expand dimensions
-    sil = (np.expand_dims(sil, 0))
-    # get prediction
-    prediction = cnn.predict(sil)
+    img = (np.expand_dims(img, 0))
+    return img
+
+def get_prediction(sample):
+    prediction = cnn.predict(sample)
     prediction = np.argmax(prediction[0])
     class_name = get_class(prediction)
-    font = cv.FONT_HERSHEY_SIMPLEX
-    cv.putText(draw_rect, class_name, (10, 500), font, 4, (255,255,255), 2, cv.LINE_AA)
-
-    cv.imshow("Display", draw_rect)
-
-    if cv.waitKey(1) & 0xFF == ord('q'):
-         break
+    return class_name
 
 
-cap.release()
-cv.destroyAllWindows()
+if __name__ == "__main__":
+    cap, term_crit = initialize_video()
+
+    r, h, c, w, track_window = initialize_hand_window()
+
+    frame, bg_roi, hand_roi = position_hand()
+
+    hand_mask, diff = subtract_background(bg_roi, hand_roi)
+    
+    roi_hsv, roi_hist = get_histogram(hand_mask)
+
+    cnn = tf.keras.models.load_model('cnn.h5')
+
+    while(1):
+        ret, frame = cap.read()
+        norm = cv.normalize(frame, frame, 0, 255, cv.NORM_MINMAX)
+        hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+        dst = cv.calcBackProject([hsv], [0,1], roi_hist, [0, 180, 0, 256], 1)
+
+        # apply meanshift to get the new location
+        ret, track_window = cv.CamShift(dst, track_window, term_crit)
+
+        # Draw it on image
+        img_camshift, pts = draw_camshift(frame, ret)
+
+        # Get camshift extrema
+        x, y, w, h = get_camshift_extrema(pts)
+
+        # Create hand window (larger box)
+        large_x, large_y, large_w, large_h = get_current_hand_window(x, y, w, h)
+
+        # Draw the larger rectangle on frame
+        display_frame = cv.rectangle(img_camshift, (x - int(w / 2), y - int(h / 2)), (x + int(1.5 * w), y + h), (0, 255, 0), 1)
+
+        cv.imshow("Display", display_frame)
+
+        roi, roi_bgr = get_ROI_image(frame, hsv)
+        # get silhouette
+        sil = get_silhouette(roi, roi_bgr)
+        # get sample
+        sample = process_sample(sil)
+        # get prediction
+        class_name = get_prediction(sample)
+        # display result
+        cv.putText(display_frame, class_name, (10, 500), cv.FONT_HERSHEY_SIMPLEX, 4, (255, 255, 255), 2, cv.LINE_AA)
+        cv.imshow("Display", display_frame)
+
+        if cv.waitKey(1) & 0xFF == ord('q'):
+             break
+
+
+    cap.release()
+    cv.destroyAllWindows()

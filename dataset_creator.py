@@ -65,78 +65,119 @@ def get_histogram(hand_mask):
     cv.normalize(roi_hist, roi_hist, 0, 255, cv.NORM_MINMAX)
     return(roi_hsv, roi_hist)
 
-# Create dataset directory to store files
-print("Enter Dataset Name and press Enter: ")
-dir = input()
-cwd = os.getcwd()
-print(cwd)
-path = os.path.join(cwd, dir)
-if not os.path.exists(dir):
-    os.mkdir(path)
-i = len(os.listdir(path)) + 1
+def initialize_dataset():
+    # Create dataset directory to store files
+    print("Enter Dataset Name and press Enter: ")
+    dir = input()
 
-# Start video capturing
-cap = cv.VideoCapture(0)
+    cwd = os.getcwd()
+    path = os.path.join(cwd, "datasets")
+    if "test" in dir:
+        path = os.path.join(path, 'testing')
+    else:
+        path = os.path.join(path, 'training')
+    path = os.path.join(path, dir)
+    if not os.path.exists(path):
+        os.mkdir(path)
+    i = len(os.listdir(path)) + 1
+    return i, path, dir
 
-# Initial window location
-r,h,c,w = 130,420,940,300
-track_window = (c,r,w,h)
+def initialize_video():
+    # Start video capturing
+    cap = cv.VideoCapture(0)
 
-frame, bg_roi, hand_roi = position_hand()
+    term_crit = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 1)
+    return cap, term_crit
 
-hand_mask, diff = subtract_background(bg_roi, hand_roi)
+def initialize_hand_window():
+    # Initial window location
+    r, h, c, w = 130, 420, 940, 300
+    track_window = (c, r, w, h)
+    return r, h, c, w, track_window
 
-roi_hsv, roi_hist = get_histogram(hand_mask)
-
-term_crit = ( cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 1 )
-
-while(1):
-    ret, frame = cap.read()
-    norm = cv.normalize(frame, frame, 0, 255, cv.NORM_MINMAX)
-    hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
-    dst = cv.calcBackProject([hsv], [0,1], roi_hist, [0, 180, 0, 256], 1)
-
-    # apply meanshift to get the new location
-    ret, track_window = cv.CamShift(dst, track_window, term_crit)
-
-    # Draw it on image
+def draw_camshift(frame, ret):
     pts = cv.boxPoints(ret)
     pts = np.int0(pts)
-    img2 = cv.polylines(frame.copy(), [pts], True, 255, 2)
+    img = cv.polylines(frame.copy(), [pts], True, 255, 2)
+    return img, pts
 
+def get_camshift_extrema(pts):
     pts_col = pts[:, 0]
     pts_row = pts[:, 1]
     x = np.amin(pts_col)
     y = np.amin(pts_row)
     w = np.amax(pts_col) - x
     h = np.amax(pts_row) - y
+    return x, y, w, h
 
-    large_x = x-int(w/2)
-    large_y = y-int(h/2)
-    large_w = int(1.5*w)
-    large_h = h
-    draw_rect = cv.rectangle(img2, (x-int(w/2), y-int(h/2)), (x + int(1.5*w), y + h), (0, 255, 0), 1)
+def get_current_hand_window(x,y,w,h):
+    x = x - int(w / 2)
+    y = y - int(h / 2)
+    w = int(1.5 * w)
+    return x,y,w,h
 
-    cv.imshow("Display", draw_rect)
+def get_ROI_image(frame, hsv):
+    if y + large_h >= frame.shape[0]:
+        roi_bgr = frame[large_y:frame.shape[0], large_x:x + large_w]
+        roi = hsv[large_y:frame.shape[0], large_x:x + large_w]
+    if x + large_w >= frame.shape[1]:
+        roi_bgr = frame[large_y:y + large_h, large_x:frame.shape[1]]
+        roi = hsv[large_y:y + large_h, large_x:frame.shape[1]]
+    else:
+        roi_bgr = frame[large_y:y + large_h, large_x:x + large_w]
+        roi = hsv[large_y:y + large_h, large_x:x + large_w]
+    return roi, roi_bgr
 
-    if cv.waitKey(1) & 0xFF == ord('q'):
-         break
-    if cv.waitKey(1) & 0xFF == ord('c'):
-        if y+large_h >= frame.shape[0]:
-            roi_bgr = frame[large_y:frame.shape[0], large_x:x + large_w]
-            roi = hsv[large_y:frame.shape[0], large_x:x + large_w]
-        if x+large_w >= frame.shape[1]:
-            roi_bgr = frame[large_y:y + large_h, large_x:frame.shape[1]]
-            roi = hsv[large_y:y + large_h, large_x:frame.shape[1]]
-        else:
-            roi_bgr = frame[large_y:y + large_h, large_x:x + large_w]
-            roi = hsv[large_y:y + large_h, large_x:x + large_w]
-        sil = get_silhouette(roi, roi_bgr)
-        file_name = str(dir + '_' + str(i) + '.jpg')
-        cv.imshow(file_name, sil)
-        cv.imwrite(os.path.join(path, file_name), sil)
-        k = cv.waitKey(500)
-        i = i+1
+def save_sample(dir, i):
+    file_name = str(dir + '_' + str(i) + '.jpg')
+    cv.imwrite(os.path.join(path, file_name), sil)
+    return file_name
 
-cap.release()
-cv.destroyAllWindows()
+if __name__ == "__main__":
+    i, path, dir = initialize_dataset()
+
+    cap, term_crit = initialize_video()
+
+    r, h, c, w, track_window = initialize_hand_window()
+
+    frame, bg_roi, hand_roi = position_hand()
+
+    hand_mask, diff = subtract_background(bg_roi, hand_roi)
+
+    roi_hsv, roi_hist = get_histogram(hand_mask)
+
+    while(1):
+        ret, frame = cap.read()
+        norm = cv.normalize(frame, frame, 0, 255, cv.NORM_MINMAX)
+        hsv = cv.cvtColor(frame, cv.COLOR_BGR2HSV)
+        dst = cv.calcBackProject([hsv], [0,1], roi_hist, [0, 180, 0, 256], 1)
+
+        # apply camshift to get the new location
+        ret, track_window = cv.CamShift(dst, track_window, term_crit)
+
+        # Draw it on image
+        img_camshift, pts = draw_camshift(frame, ret)
+
+        # Get camshift extrema
+        x,y,w,h = get_camshift_extrema(pts)
+
+        # Create hand window (larger box)
+        large_x, large_y, large_w, large_h = get_current_hand_window(x,y,w,h)
+
+        # Draw the larger rectangle on frame
+        draw_rect = cv.rectangle(img_camshift, (x - int(w / 2), y - int(h / 2)), (x + int(1.5 * w), y + h), (0, 255, 0), 1)
+
+        cv.imshow("Display", draw_rect)
+
+        if cv.waitKey(1) & 0xFF == ord('q'):
+             break
+        if cv.waitKey(1) & 0xFF == ord('c'):
+            roi, roi_bgr = get_ROI_image(frame, hsv)
+            sil = get_silhouette(roi, roi_bgr)
+            file_name = save_sample(dir,i)
+            cv.imshow(file_name, sil)
+            k = cv.waitKey(500)
+            i = i+1
+
+    cap.release()
+    cv.destroyAllWindows()
