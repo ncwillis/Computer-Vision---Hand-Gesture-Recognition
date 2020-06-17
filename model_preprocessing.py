@@ -95,8 +95,5 @@ if __name__ == "__main__":
     test_loss, test_acc = model.evaluate(x_test, y_test, verbose=2)
 
     print('\nTest accuracy:', test_acc)
-
-    print(x_train.shape)
-    print(y_train.shape)
-    print(x_test.shape)
-    print(y_test.shape)
+    probability_model = tf.keras.Sequential([model,tf.keras.layers.Softmax()])
+    probability_model.save('cnn.h5')
