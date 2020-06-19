@@ -9,6 +9,10 @@ from keras.models import Sequential
 import os
 
 def get_label(name):
+    """
+    :param name: Class name
+    :return: Class label
+    """
     if "peace" in name:
         label = 0
     elif "wave" in name:
@@ -24,6 +28,10 @@ def get_label(name):
     return label
 
 def load_samples(dir):
+    """
+    :param dir: directory file path
+    :return: Array of sample images with corresponding labels
+    """
     cwd = os.getcwd()
     folder = os.path.join(cwd, dir)
     label = get_label(dir)
@@ -38,6 +46,10 @@ def load_samples(dir):
     return (x_train, y_train)
 
 def load_data(train_or_test):
+    """
+    :param train_or_test: String indicating if training or testing data is desired
+    :return: Array of samples and corresponding labels
+    """
     # Access datasets directory (training or testing)
     cwd = os.getcwd()
     path = os.path.join(cwd, 'datasets')
@@ -62,11 +74,21 @@ def load_data(train_or_test):
     return (x_train, y_train), key
 
 def reshape_data(x, y, key):
+    """
+    :param x: Array of sample images
+    :param y: Array of labels corresponding to sample images
+    :param key: Array of class names and corresponding labels
+    :return:
+    """
     x = x.reshape(x.shape[0], 1, x.shape[1], x.shape[2])
     y = np_utils.to_categorical(y, len(key))
     return x, y
 
 def normalize_data(x):
+    """
+    :param x: Array of sample images
+    :return: Array of normalized sample images
+    """
     x = x.astype('float32')
     x /= 255
     return x
@@ -83,8 +105,8 @@ if __name__ == "__main__":
 
     model = keras.Sequential([
         keras.layers.Flatten(input_shape=(200, 200)),
-        keras.layers.Dense(128, activation='relu'),
-        keras.layers.Dense(6)
+        keras.layers.Dense(256, activation='relu'),
+        keras.layers.Dense(10)
     ])
 
     model.compile(optimizer='adam',
