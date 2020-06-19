@@ -1,38 +1,7 @@
 import cv2 as cv
-import numpy as np
-import time
-import os
 import tensorflow as tf
-from tensorflow import keras
 import hand_detection_functions as hd
-
-def get_class(label):
-    if label == 0:
-        hand = "peace"
-    elif label == 1:
-        hand = "wave"
-    elif label == 2:
-        hand = "fist"
-    elif label == 3:
-        hand = "thumbsup"
-    elif label == 4:
-        hand = "rad"
-    else:
-        hand = "ok"
-    return hand
-
-def process_sample(img):
-    img = img.astype('float32')
-    # expand dimensions
-    img = (np.expand_dims(img, 0))
-    return img
-
-def get_prediction(sample):
-    prediction = cnn.predict(sample)
-    prediction = np.argmax(prediction[0])
-    class_name = get_class(prediction)
-    return class_name
-
+import classification_functions as cf
 
 if __name__ == "__main__":
     cap, term_crit = hd.initialize_video()
@@ -72,11 +41,11 @@ if __name__ == "__main__":
 
         roi, roi_bgr = hd.get_ROI_image(frame, hsv, (x,y), (large_x, large_y), (large_w, large_h))
         # get silhouette
-        sil = hd.get_mask(roi, roi_bgr, roi_hist)
+        mask = hd.get_mask(roi, roi_bgr, roi_hist)
         # get sample
-        sample = process_sample(sil)
+        sample = cf.process_sample(mask)
         # get prediction
-        class_name = get_prediction(sample)
+        class_name = cf.get_prediction(sample, cnn)
         # display result
         cv.putText(display_frame, class_name, (10, 500), cv.FONT_HERSHEY_SIMPLEX, 4, (255, 255, 255), 2, cv.LINE_AA)
         cv.imshow("Display", display_frame)

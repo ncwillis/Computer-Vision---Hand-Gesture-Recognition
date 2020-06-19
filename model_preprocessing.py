@@ -84,7 +84,7 @@ if __name__ == "__main__":
     model = keras.Sequential([
         keras.layers.Flatten(input_shape=(200, 200)),
         keras.layers.Dense(128, activation='relu'),
-        keras.layers.Dense(10)
+        keras.layers.Dense(6)
     ])
 
     model.compile(optimizer='adam',

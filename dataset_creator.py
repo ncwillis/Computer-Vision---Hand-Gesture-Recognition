@@ -1,33 +1,10 @@
 import cv2 as cv
-import numpy as np
-import time
-import os
 import hand_detection_functions as hd
+import dataset_creator_functions as dc
 
-def initialize_dataset():
-    # Create dataset directory to store files
-    print("Enter Dataset Name and press Enter: ")
-    dir = input()
-
-    cwd = os.getcwd()
-    path = os.path.join(cwd, "datasets")
-    if "test" in dir:
-        path = os.path.join(path, 'testing')
-    else:
-        path = os.path.join(path, 'training')
-    path = os.path.join(path, dir)
-    if not os.path.exists(path):
-        os.mkdir(path)
-    i = len(os.listdir(path)) + 1
-    return i, path, dir
-
-def save_sample(dir, i):
-    file_name = str(dir + '_' + str(i) + '.jpg')
-    cv.imwrite(os.path.join(path, file_name), sil)
-    return file_name
 
 if __name__ == "__main__":
-    i, path, dir = initialize_dataset()
+    i, path, dir = dc.initialize_dataset()
 
     cap, term_crit = hd.initialize_video()
 
@@ -66,9 +43,9 @@ if __name__ == "__main__":
              break
         if cv.waitKey(1) & 0xFF == ord('c'):
             roi, roi_bgr = hd.get_ROI_image(frame, hsv, (x,y), (large_x, large_y), (large_w, large_h))
-            sil = hd.get_mask(roi, roi_bgr, roi_hist)
-            file_name = save_sample(dir,i)
-            cv.imshow(file_name, sil)
+            mask = hd.get_mask(roi, roi_bgr, roi_hist)
+            file_name = dc.save_sample(dir,i, path, mask)
+            cv.imshow(file_name, mask)
             k = cv.waitKey(500)
             i = i+1
 
