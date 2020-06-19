@@ -3,19 +3,28 @@ import numpy as np
 import time
 
 def initialize_video():
-    # Start video capturing
+    """
+    :return: Video-capture object, cam-shift algorithm termination criteria
+    """
     cap = cv.VideoCapture(0)
-
     term_crit = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 1)
     return cap, term_crit
 
 def initialize_hand_window():
-    # Initial window location
+    """
+    :return: Coordinates of initial window location
+    """
     r, h, c, w = 130, 420, 940, 300
     track_window = (c, r, w, h)
     return r, h, c, w, track_window
 
 def get_mask(roi, roi_bgr, roi_hist):
+    """
+    :param roi: Mat object at region of interest in HSV
+    :param roi_bgr: Mat object at region of interest in BGR
+    :param roi_hist: Histogram of region of interest
+    :return: Thresholded mask of hand/region of interest
+    """
     roi_backproj = cv.calcBackProject([roi], [0, 1], roi_hist, [0, 180, 0, 256], 1)
     kernel = np.ones((11, 11), np.uint8)
     large_kernel = np.ones((13, 13), np.uint8)
@@ -30,7 +39,8 @@ def get_mask(roi, roi_bgr, roi_hist):
 
     # Make silhouette using thresholding
     ret, mask = cv.threshold(res, 10, 255, cv.THRESH_BINARY)
-    #Opening and closing to get rid of noise
+
+    #Opening and closing to remove noise
     mask = cv.morphologyEx(mask, cv.MORPH_OPEN, large_kernel)
     mask = cv.morphologyEx(mask, cv.MORPH_CLOSE, kernel)
 
@@ -38,12 +48,16 @@ def get_mask(roi, roi_bgr, roi_hist):
     mask_250 = cv.resize(mask, (200,200))
     return mask_250
 
-# Display "Position Hand in Box Below" - 1.5s
-# Take bg_roi after 1s
-# Display Box below with "Press 's' to start" underneath
-# If q_ord == s, and t>1.5s, take hand_roi and break
-
 def position_hand(cap, c, r, w, h):
+    """
+    :param cap: Video capture object
+    :param c: Column index for initial window position
+    :param r: Row index for initial window position
+    :param w: Width of initial window
+    :param h: Height of initial window
+    :return: Most recent frame, background image of region of interest, and image of hand over
+    background region of interest
+    """
     t_init = time.perf_counter()
     t_passed = 0
     while(1):
@@ -72,42 +86,58 @@ def position_hand(cap, c, r, w, h):
                 cv.imshow('Display', rect)
                 hand_roi = frame[r:r+h, c:c+w]
                 break
-        # elif (t_passed > 1) & (t_passed < 5.):
-        #     cv.namedWindow('Display')
-        #     cv.moveWindow('Display', 40, 30)
-        #     cv.imshow('Display', rect)
-        #     hand_roi = frame[r:r+h, c:c+w]
         else:
             break
-    # Set up ROI for tracking
     return frame, bg_roi, hand_roi
 
 def subtract_background(bg_roi, hand_roi):
+    """
+    :param bg_roi: Background image of region of interest
+    :param hand_roi: Image of hand over background region of interest
+    :return: Thresholded mask of hand, and background subtracted image
+    """
     diff = cv.absdiff(bg_roi, hand_roi)
     diff = cv.cvtColor(diff, cv.COLOR_BGR2GRAY)
     ret, thresh = cv.threshold(diff, 25, 255, cv.THRESH_BINARY)
     return thresh, diff
 
 def get_histogram(hand_mask, hand_roi):
-    # # Erode mask
+    """
+    :param hand_mask: Mask of hand obtained from background subtraction
+    :param hand_roi: Image of hand in region of interest
+    :return: HSV image of region of interest, and histogram over the region of interest
+    """
+    # Erode mask
     kernel = np.ones((5,5),np.uint8)
     mask = cv.erode(hand_mask, kernel, iterations = 1)
-    # cv.imshow("Eroded", mask)
-    # k = cv.waitKey(0)
 
-    # # Get Histogram
     roi_hsv = cv.cvtColor(hand_roi, cv.COLOR_BGR2HSV)
     roi_hist = cv.calcHist([roi_hsv], [0,1], mask, [180,256], [0,180,0,256])
     cv.normalize(roi_hist, roi_hist, 0, 255, cv.NORM_MINMAX)
     return(roi_hsv, roi_hist)
 
 def get_current_hand_window(x,y,w,h):
+    """
+    :param x: Current x index in video
+    :param y: Current y index in video
+    :param w: Current width of ROI in video
+    :param h: Current height of ROI in video
+    :return: Enlarged dimensions for the ROI window
+    """
     x = x - int(w / 2)
     y = y - int(h / 2)
     w = int(1.5 * w)
     return x,y,w,h
 
 def get_ROI_image(frame, hsv, pt, large_pt, large_dim):
+    """
+    :param frame: Current frame of video
+    :param hsv: HSV frame of video
+    :param pt: X and Y coordinates of region of interest
+    :param large_pt: Englarged x and y coordinates of region of interest
+    :param large_dim: Enlarged w and h dimensions of region of interest
+    :return: Region of interest image in BGR and HSV
+    """
     (x,y) = pt
     (large_x, large_y) = large_pt
     (large_w, large_h) = large_dim
@@ -129,6 +159,10 @@ def get_ROI_image(frame, hsv, pt, large_pt, large_dim):
     return roi, roi_bgr
 
 def get_camshift_extrema(pts):
+    """
+    :param pts: Set of points determined by camshift algorithm
+    :return: Coordinates and dimensions of camshift extreme points
+    """
     pts_col = pts[:, 0]
     pts_row = pts[:, 1]
     x = np.amin(pts_col)
@@ -138,6 +172,11 @@ def get_camshift_extrema(pts):
     return x, y, w, h
 
 def draw_camshift(frame, ret):
+    """
+    :param frame: Current frame of video
+    :param ret: Points obtained from camshift alogrithm
+    :return: Frame with camshift box added, and points defining box
+    """
     pts = cv.boxPoints(ret)
     pts = np.int0(pts)
     img = cv.polylines(frame.copy(), [pts], True, 255, 2)

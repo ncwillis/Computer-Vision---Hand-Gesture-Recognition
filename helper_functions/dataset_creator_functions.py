@@ -2,6 +2,9 @@ import cv2 as cv
 import os
 
 def initialize_dataset():
+    """
+    :return: Index number of image sample, path of image sample, and directory folder
+    """
     # Create dataset directory to store files
     print("Enter Dataset Name and press Enter: ")
     dir = input()
@@ -19,6 +22,13 @@ def initialize_dataset():
     return i, path, dir
 
 def save_sample(dir, i, path, mask):
+    """
+    :param dir: Directory name (string)
+    :param i: Sample index number (integer)
+    :param path: File path of sample
+    :param mask: Sample image
+    :return: File name (string)
+    """
     file_name = str(dir + '_' + str(i) + '.jpg')
     cv.imwrite(os.path.join(path, file_name), mask)
     return file_name
