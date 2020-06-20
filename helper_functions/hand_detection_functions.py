@@ -66,9 +66,8 @@ def position_hand(cap, c, r, w, h):
         message_1 = "Position Hand in Box Below"
         message_2 = "Press 's' to Start"
         cv.putText(frame, message_1, (920, 115), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 1, cv.LINE_AA)
-        rect = cv.rectangle(frame, (c,r), (c+w, r+h), (255,255,255), 3)
+        rect = cv.rectangle(frame.copy(), (c,r), (c+w, r+h), (255,255,255), 3)
         cv.putText(rect, message_2, (940, 570), cv.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 1, cv.LINE_AA)
-        #942, 567
         if cv.waitKey(1) & 0xFF == ord('q'):
             break
         if (t_passed < 1.5):
@@ -76,7 +75,7 @@ def position_hand(cap, c, r, w, h):
             cv.moveWindow('Display', 40, 30)
             cv.imshow('Display', frame)
             bg_roi = frame[r:r+h, c:c+w]
-        elif (t_passed > 1.5):
+        elif (t_passed >= 1.5):
             cv.namedWindow('Display')
             cv.moveWindow('Display', 40, 30)
             cv.imshow('Display', rect)
