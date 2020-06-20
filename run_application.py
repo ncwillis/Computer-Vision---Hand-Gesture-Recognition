@@ -1,7 +1,7 @@
 import cv2 as cv
 import tensorflow as tf
-import hand_detection_functions as hd
-import classification_functions as cf
+import helper_functions.hand_detection_functions as hd
+import helper_functions.classification_functions as cf
 
 if __name__ == "__main__":
     cap, term_crit = hd.initialize_video()
@@ -37,6 +37,8 @@ if __name__ == "__main__":
         # Draw the larger rectangle on frame
         display_frame = cv.rectangle(img_camshift, (x - int(w / 2), y - int(h / 2)), (x + int(1.5 * w), y + h), (0, 255, 0), 1)
 
+        cv.namedWindow('Display')
+        cv.moveWindow('Display', 40, 30)
         cv.imshow("Display", display_frame)
 
         roi, roi_bgr = hd.get_ROI_image(frame, hsv, (x,y), (large_x, large_y), (large_w, large_h))

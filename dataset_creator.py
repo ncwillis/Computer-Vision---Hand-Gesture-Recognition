@@ -1,6 +1,6 @@
 import cv2 as cv
-import hand_detection_functions as hd
-import dataset_creator_functions as dc
+import helper_functions.hand_detection_functions as hd
+import helper_functions.dataset_creator_functions as dc
 
 
 if __name__ == "__main__":
